@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CNX Airport LoS Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+    <script src="app.js" defer></script>
+</head>
+<body>
+    <div class="header">
+        <h1>✈️ Chiang Mai International Airport</h1>
+        <p>Level of Service (LoS) Dashboard</p>
+    </div>
+    <div class="container">
+        <div id="status" class="status">
+            กำลังโหลดข้อมูล CNX LoS.xlsx... ⏳
+        </div>
+        <div id="mainDashboard" style="display: none;">
+            <!-- FILTER -->
+            <div class="box">
+                <div class="title">🔎 ตัวกรองข้อมูลภาพรวม</div>
+                <div class="filters">
+                    <div>
+                        <label>ปี</label>
+                        <select id="year">
+                            <option value="all">ทั้งหมด</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>เดือน</label>
+                        <div class="month-picker" id="monthPicker">
+                            <button type="button" class="month-picker-button" id="monthPickerButton">ทั้งหมด</button>
+                            <div class="month-picker-menu" id="monthPickerMenu"></div>
+                            <select id="month" aria-hidden="true" tabindex="-1">
+                                <option value="all">ทั้งหมด</option>
+                                <option value="1">มกราคม</option>
+                                <option value="2">กุมภาพันธ์</option>
+                                <option value="3">มีนาคม</option>
+                                <option value="4">เมษายน</option>
+                                <option value="5">พฤษภาคม</option>
+                                <option value="6">มิถุนายน</option>
+                                <option value="7">กรกฎาคม</option>
+                                <option value="8">สิงหาคม</option>
+                                <option value="9">กันยายน</option>
+                                <option value="10">ตุลาคม</option>
+                                <option value="11">พฤศจิกายน</option>
+                                <option value="12">ธันวาคม</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label>วันที่</label>
+                        <div class="date-picker" id="datePicker">
+                            <button type="button" class="date-picker-button" id="datePickerButton">ทั้งหมด</button>
+                            <div class="date-picker-menu" id="datePickerMenu"></div>
+                            <select id="date" aria-hidden="true" tabindex="-1">
+                                <option value="all">ทั้งหมด</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label>เที่ยวบิน</label>
+                        <select id="flight">
+                            <option value="all">ทั้งหมด</option>
+                            <option value="International">International</option>
+                            <option value="Domestic">Domestic</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>ขาเข้า/ออก</label>
+                        <select id="direction">
+                            <option value="all">ทั้งหมด</option>
+                            <option value="Departure">ขาออก</option>
+                            <option value="Arrival">ขาเข้า</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Service</label>
+                        <select id="service">
+                            <option value="all">ทั้งหมด</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="reset" id="resetButton" type="button">
+                    ↻ ล้างตัวกรอง
+                </button>
+            </div>
+
+            <!-- KPI -->
+            <div class="kpis">
+                <div class="kpi">
+                    <div class="t">จำนวน Passenger</div>
+                    <div class="v" id="passenger">-</div>
+                </div>
+                <div class="kpi">
+                    <div class="t">Avg. Waiting Time</div>
+                    <div class="v" id="waiting">-</div>
+                </div>
+                <div class="kpi">
+                    <div class="t">จำนวนรายการ</div>
+                    <div class="v" id="records">-</div>
+                </div>
+            </div>
+
+            <!-- SERVICE AREAS -->
+            <div class="section">
+                Service Areas
+            </div>
+            <div id="cards" class="cards"></div>
+
+            <!-- TABLE -->
+            <div class="box details-box">
+                <div class="title">
+                    📋 รายละเอียดข้อมูล
+                </div>
+                <div id="excelButtonWrap">
+                    <a id="excelButton" href="https://o365cmu-my.sharepoint.com/:x:/g/personal/salintip_ain_cmu_ac_th/IQBKHTSvvaTARISYnNkCFvu9AW7ueXj1gUnASjGdjB3BCSs?e=yT0DPf" target="_blank" rel="noopener noreferrer" class="month-link-btn">
+                        <span class="excel-icon">X</span>
+                        <span><span id="excelButtonTitle">เปิดไฟล์ Excel</span><span id="excelButtonSub">ดูข้อมูลต้นฉบับ</span></span>
+                        <span class="excel-arrow">↗</span>
+                    </a>
+                </div>
+                <div id="rowCount" class="muted">
+                    0 รายการ
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ปี</th>
+                                <th>เดือน</th>
+                                <th>วันที่</th>
+                                <th>ประเภท</th>
+                                <th>ขาเข้า/ขาออก</th>
+                                <th>Service</th>
+                                <th>Waiting</th>
+                                <th>Passenger</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</body>
+</html>
