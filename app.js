@@ -27,11 +27,11 @@
     };
     const SERVICES = {
         Departure: ["Check-In", "In-Line Screening", "Security Screening"],
-        Arrival: ["Immigration", "Baggage Claim", "Taxi"],
+        Arrival: ["Immigration", "Baggage Claim"],
         "Arrival-International": ["Immigration", "Baggage Claim"],
         "Arrival-Domestic": ["Baggage Claim", "Taxi"]
     };
-    const ALL_SERVICES = [...new Set([...SERVICES.Departure, ...SERVICES.Arrival])];
+    const ALL_SERVICES = [...SERVICES.Departure, ...SERVICES.Arrival];
     const FILTER_IDS = ["year", "month", "date", "flight", "direction", "service"];
     const numberFormatter = new Intl.NumberFormat("en-US");
     const state = { rows: [] };
@@ -665,7 +665,7 @@
             elements[id].addEventListener("change", () => {
                 if (id === "year" || id === "month") updateDateOptions();
                 if (id === "month" || id === "date") renderPicker(id);
-                if (id === "direction") updateServiceOptions();
+                if (id === "direction" || id === "flight") updateServiceOptions();
                 updateDashboard();
             });
         });
