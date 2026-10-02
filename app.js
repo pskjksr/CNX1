@@ -71,6 +71,14 @@
         if (value === null || value === undefined || value === "") return "-";
         const minutes = Number(value);
         if (!Number.isFinite(minutes) || minutes < 0) return "-";
+        const totalMinutes = Math.round(minutes);
+        return `${Math.floor(totalMinutes / 60)}:${String(totalMinutes % 60).padStart(2, "0")}`;
+    }
+
+    function formatWaitingAverage(value) {
+        if (value === null || value === undefined || value === "") return "-";
+        const minutes = Number(value);
+        if (!Number.isFinite(minutes) || minutes < 0) return "-";
         const totalSeconds = Math.round(minutes * 60);
         const m = Math.floor(totalSeconds / 60);
         const s = totalSeconds % 60;
@@ -583,7 +591,7 @@
     function updateKpi(rows) {
         const summary = summarizeRows(rows);
         elements.passenger.textContent = formatNumber(summary.passengers);
-        elements.waiting.textContent = formatWaitingDuration(summary.averageWaiting);
+        elements.waiting.textContent = formatWaitingAverage(summary.averageWaiting);
         elements.records.textContent = formatNumber(summary.records);
     }
 
@@ -603,7 +611,7 @@
                     <div class="muted">${summary.records} รายการ</div>
                     <div class="grid2">
                         <div class="metric"><small>Passenger</small><b>${passengers}</b></div>
-                        <div class="metric"><small>Avg. Waiting</small><b>${formatWaitingDuration(summary.averageWaiting)}</b></div>
+                        <div class="metric"><small>Avg. Waiting</small><b>${formatWaitingAverage(summary.averageWaiting)}</b></div>
                     </div>
                 </div>
             `;
