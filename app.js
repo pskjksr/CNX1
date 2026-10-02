@@ -69,20 +69,11 @@
 
     function formatWaitingDuration(value) {
         if (value === null || value === undefined || value === "") return "-";
-        const minutes = Number(value);
-        if (!Number.isFinite(minutes) || minutes < 0) return "-";
-        const totalMinutes = Math.round(minutes);
-        return `${Math.floor(totalMinutes / 60)}:${String(totalMinutes % 60).padStart(2, "0")}`;
-    }
-
-    function formatWaitingAverage(value) {
-        if (value === null || value === undefined || value === "") return "-";
-        const minutes = Number(value);
-        if (!Number.isFinite(minutes) || minutes < 0) return "-";
-        const totalSeconds = Math.round(minutes * 60);
-        const m = Math.floor(totalSeconds / 60);
-        const s = totalSeconds % 60;
-        return `${m}:${String(s).padStart(2, "0")}`;
+        const seconds = Number(value);
+        if (!Number.isFinite(seconds) || seconds < 0) return "-";
+        const m = Math.floor(seconds / 60);
+        const s = Math.round(seconds % 60);
+        return `${m}:${String(s < 60 ? s : 0).padStart(2, "0")}`;
     }
 
     function formatNumber(value) {
@@ -141,7 +132,7 @@
             service,
             start,
             finish,
-            waiting: calculateWaitingMinutes(start, finish, waitingRaw),
+            waiting: calcWaitingSeconds(start, finish, waitingRaw),
             passenger: toNumeric(passengerRaw)
         };
     }
@@ -382,8 +373,7 @@
                 if (!hasAny) continue;
                 const start = normalizeCellTime(startRaw);
                 const finish = normalizeCellTime(finishRaw);
-                const waitingValue = excelDurationToMinutes(waitingRaw);
-                const waiting = waitingValue !== null ? waitingValue : calculateWaitingMinutes(start, finish, 0);
+                const waiting = calcWaitingSeconds(start, finish, waitingRaw);
                 const passenger = toNumeric(passengerRaw);
 
                 rows.push({
@@ -456,19 +446,37 @@
         return rows;
     }
 
-    // Convert Excel time fraction (e.g. 35 sec = 35/86400 ≈ 0.000405) to decimal minutes.
-    function excelDurationToMinutes(value) {
-        if (value === "" || value === null || value === undefined) return null;
-        if (typeof value === "number") {
-            if (value > 0 && value < 1) return value * 24 * 60; // Excel fraction of day
-            if (value >= 1) return value; // already in minutes
-            return null;
-        }
+    // Convert a time value to seconds — mirrors conner.py's to_total_seconds().
+    // HH:MM strings are treated as MM:SS (first part × 60 + second part),
+    // so Finish − Start yields the waiting time in seconds directly.
+    function toTotalSeconds(value) {
+        if (value === null || value === undefined || value === "") return null;
         const s = String(value).trim();
-        const mmss = s.match(/^(\d{1,3}):(\d{2})$/);
-        if (mmss) return Number(mmss[1]) + Number(mmss[2]) / 60; // "M:SS" string
-        const n = toNumeric(s);
-        return Number.isFinite(n) && n >= 0 ? n : null;
+        if (s === "" || s === "-") return null;
+        const colonMatch = s.match(/^(\d{1,3}):(\d{2})(?::\d{2})?$/);
+        if (colonMatch) return parseFloat(colonMatch[1]) * 60 + parseFloat(colonMatch[2]);
+        const n = typeof value === "number" ? value : Number(s);
+        if (Number.isFinite(n) && n > 0 && n < 1) {
+            let totalMins = n * 24 * 60;
+            if (totalMins > 60) totalMins /= 60;
+            return totalMins * 60;
+        }
+        if (Number.isFinite(n) && n >= 1) return n * 60;
+        return null;
+    }
+
+    // Calculate waiting time in seconds: Finish − Start first, fall back to waitingRaw.
+    // Mirrors conner.py's calc_waiting_seconds().
+    function calcWaitingSeconds(startValue, finishValue, waitingRaw) {
+        const sSec = toTotalSeconds(startValue);
+        const fSec = toTotalSeconds(finishValue);
+        if (sSec !== null && fSec !== null) {
+            const diff = fSec - sSec;
+            if (diff >= 0) return Math.round(diff * 10) / 10;
+        }
+        const wSec = toTotalSeconds(waitingRaw);
+        if (wSec !== null && wSec >= 0) return Math.round(wSec * 10) / 10;
+        return 0;
     }
     function getServiceList(direction, flight) {
         if (direction && direction !== "all" && flight && flight !== "all") {
@@ -575,7 +583,7 @@
         let waitingCount = 0;
         for (const row of rows) {
             passengers += toNumeric(row.passenger);
-            const waiting = toNumeric(row.waiting);
+            const waiting = toNumeric(row.waiting); // stored in seconds
             if (Number.isFinite(waiting) && waiting > 0) {
                 waitingTotal += waiting;
                 waitingCount++;
@@ -584,14 +592,14 @@
         return {
             records: rows.length,
             passengers,
-            averageWaiting: waitingCount ? waitingTotal / waitingCount : 0
+            averageWaiting: waitingCount ? waitingTotal / waitingCount : 0 // seconds
         };
     }
 
     function updateKpi(rows) {
         const summary = summarizeRows(rows);
         elements.passenger.textContent = formatNumber(summary.passengers);
-        elements.waiting.textContent = formatWaitingAverage(summary.averageWaiting);
+        elements.waiting.textContent = formatWaitingDuration(summary.averageWaiting);
         elements.records.textContent = formatNumber(summary.records);
     }
 
@@ -611,7 +619,7 @@
                     <div class="muted">${summary.records} รายการ</div>
                     <div class="grid2">
                         <div class="metric"><small>Passenger</small><b>${passengers}</b></div>
-                        <div class="metric"><small>Avg. Waiting</small><b>${formatWaitingAverage(summary.averageWaiting)}</b></div>
+                        <div class="metric"><small>Avg. Waiting</small><b>${formatWaitingDuration(summary.averageWaiting)}</b></div>
                     </div>
                 </div>
             `;
