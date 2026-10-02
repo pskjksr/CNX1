@@ -27,9 +27,11 @@
     };
     const SERVICES = {
         Departure: ["Check-In", "In-Line Screening", "Security Screening"],
-        Arrival: ["Immigration", "Baggage Claim"]
+        Arrival: ["Immigration", "Baggage Claim", "Taxi"],
+        "Arrival-International": ["Immigration", "Baggage Claim"],
+        "Arrival-Domestic": ["Baggage Claim", "Taxi"]
     };
-    const ALL_SERVICES = [...SERVICES.Departure, ...SERVICES.Arrival];
+    const ALL_SERVICES = [...new Set([...SERVICES.Departure, ...SERVICES.Arrival])];
     const FILTER_IDS = ["year", "month", "date", "flight", "direction", "service"];
     const numberFormatter = new Intl.NumberFormat("en-US");
     const state = { rows: [] };
@@ -312,7 +314,8 @@
             "In-Line\nScreening": "In-Line Screening",
             "Security\nScreening": "Security Screening",
             "Immigration": "Immigration",
-            "Baggage\nClaim": "Baggage Claim"
+            "Baggage\nClaim": "Baggage Claim",
+            "Taxi": "Taxi"
         };
         const normalizeCellTime = (value) => {
             if (value instanceof Date) {
@@ -443,7 +446,11 @@
     }
 
     // Filters and custom month/day menus.
-    function getServiceList(direction) {
+    function getServiceList(direction, flight) {
+        if (direction && direction !== "all" && flight && flight !== "all") {
+            const key = `${direction}-${flight}`;
+            if (SERVICES[key]) return SERVICES[key];
+        }
         return SERVICES[direction] || ALL_SERVICES;
     }
 
@@ -466,7 +473,7 @@
     }
 
     function updateServiceOptions() {
-        populateSelect(elements.service, getServiceList(elements.direction.value));
+        populateSelect(elements.service, getServiceList(elements.direction.value, elements.flight.value));
     }
 
     function updateDateOptions() {
@@ -565,8 +572,8 @@
     }
 
     function updateCards(rows) {
-        const { direction, service: selectedService } = readFilters();
-        const services = getServiceList(direction).filter(service =>
+        const { direction, service: selectedService, flight } = readFilters();
+        const services = getServiceList(direction, flight).filter(service =>
             selectedService === "all" || service === selectedService
         );
         const grouped = new Map(services.map(service => [service, []]));
