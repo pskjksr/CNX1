@@ -71,8 +71,10 @@
         if (value === null || value === undefined || value === "") return "-";
         const minutes = Number(value);
         if (!Number.isFinite(minutes) || minutes < 0) return "-";
-        const totalMinutes = Math.round(minutes);
-        return `${Math.floor(totalMinutes / 60)}:${String(totalMinutes % 60).padStart(2, "0")}`;
+        const totalSeconds = Math.round(minutes * 60);
+        const m = Math.floor(totalSeconds / 60);
+        const s = totalSeconds % 60;
+        return `${m}:${String(s).padStart(2, "0")}`;
     }
 
     function formatNumber(value) {
@@ -372,7 +374,8 @@
                 if (!hasAny) continue;
                 const start = normalizeCellTime(startRaw);
                 const finish = normalizeCellTime(finishRaw);
-                const waiting = calculateWaitingMinutes(start, finish, waitingRaw);
+                const waitingValue = excelDurationToMinutes(waitingRaw);
+                const waiting = waitingValue !== null ? waitingValue : calculateWaitingMinutes(start, finish, 0);
                 const passenger = toNumeric(passengerRaw);
 
                 rows.push({
@@ -445,7 +448,20 @@
         return rows;
     }
 
-    // Filters and custom month/day menus.
+    // Convert Excel time fraction (e.g. 35 sec = 35/86400 ≈ 0.000405) to decimal minutes.
+    function excelDurationToMinutes(value) {
+        if (value === "" || value === null || value === undefined) return null;
+        if (typeof value === "number") {
+            if (value > 0 && value < 1) return value * 24 * 60; // Excel fraction of day
+            if (value >= 1) return value; // already in minutes
+            return null;
+        }
+        const s = String(value).trim();
+        const mmss = s.match(/^(\d{1,3}):(\d{2})$/);
+        if (mmss) return Number(mmss[1]) + Number(mmss[2]) / 60; // "M:SS" string
+        const n = toNumeric(s);
+        return Number.isFinite(n) && n >= 0 ? n : null;
+    }
     function getServiceList(direction, flight) {
         if (direction && direction !== "all" && flight && flight !== "all") {
             const key = `${direction}-${flight}`;
@@ -551,8 +567,8 @@
         let waitingCount = 0;
         for (const row of rows) {
             passengers += toNumeric(row.passenger);
-            const waiting = calculateWaitingMinutes(row.start, row.finish, row.waiting);
-            if (Number.isFinite(waiting)) {
+            const waiting = toNumeric(row.waiting);
+            if (Number.isFinite(waiting) && waiting > 0) {
                 waitingTotal += waiting;
                 waitingCount++;
             }
@@ -567,7 +583,7 @@
     function updateKpi(rows) {
         const summary = summarizeRows(rows);
         elements.passenger.textContent = formatNumber(summary.passengers);
-        elements.waiting.textContent = `${summary.averageWaiting.toFixed(1)} min`;
+        elements.waiting.textContent = formatWaitingDuration(summary.averageWaiting);
         elements.records.textContent = formatNumber(summary.records);
     }
 
@@ -587,7 +603,7 @@
                     <div class="muted">${summary.records} รายการ</div>
                     <div class="grid2">
                         <div class="metric"><small>Passenger</small><b>${passengers}</b></div>
-                        <div class="metric"><small>Avg. Waiting</small><b>${summary.averageWaiting.toFixed(1)} min</b></div>
+                        <div class="metric"><small>Avg. Waiting</small><b>${formatWaitingDuration(summary.averageWaiting)}</b></div>
                     </div>
                 </div>
             `;
